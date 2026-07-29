@@ -1,11 +1,9 @@
 import os
+from aiohttp import web
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
-# توکن بات که از BotFather گرفتی
 TOKEN = os.environ.get("BOT_TOKEN", "8989176817:AAHBHAOorua7GAZcTm4fmCQsD7tAEVxLiJk")
-
-# آیدی عددی گروه کامنت‌ها (باید با منفی شروع شود)
 DISCUSSION_GROUP_ID = int(os.environ.get("DISCUSSION_GROUP_ID", "-1002243223128"))
 
 COMMENT_TEXT = (
@@ -15,24 +13,38 @@ COMMENT_TEXT = (
 
 async def auto_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
-    
-    # بررسی اینکه پیام در گروه کامنت‌ها ارسال شده و یک پیام فوروارد شده (از کانال) است
     if message and message.chat.id == DISCUSSION_GROUP_ID and message.forward_origin:
         try:
-            # ارسال متن به عنوان ریپلای (کامنت) زیر پست جدید
             await message.reply_text(COMMENT_TEXT)
         except Exception as e:
             print(f"Error: {e}")
 
-def main():
-    # ساخت اپلیکیشن بات
-    application = ApplicationBuilder().token(TOKEN).build()
+# یک سرور وب کوچک برای پاسخ به درخواست‌های رندر (جلوگیری از ارور پورت)
+async def handle(request):
+    return web.Response(text="Bot is running!")
 
-    # فیلتر برای گرفتن پیام‌های فوروارد شده در گروه مورد نظر
+async def web_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # رندر پورت را از طریق متغیر محیطی PORT مشخص می‌کند
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
+def main():
+    application = ApplicationBuilder().token(TOKEN).build()
     handler = MessageHandler(filters.Chat(DISCUSSION_GROUP_ID) & filters.FORWARDED, auto_comment)
     application.add_handler(handler)
 
-    print("Bot is running...")
+    # اجرای همزمان بات تلگرام و سرور وب برای رندر
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(web_server())
+    
+    print("Bot is running with web server...")
     application.run_polling()
 
 if __name__ == "__main__":
