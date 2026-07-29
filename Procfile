@@ -1,1 +1,1 @@
-worker: python cm.py
+web: python cm.py
