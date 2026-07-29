@@ -15,8 +15,10 @@ COMMENT_TEXT = (
 
 async def auto_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
-    if message and message.chat.id == DISCUSSION_GROUP_ID and message.forward_origin:
+    # بررسی اینکه پیام در گروه کامنت‌ها آمده است (بدون شرط سخت‌گیرانه فوروارد)
+    if message and message.chat.id == DISCUSSION_GROUP_ID:
         try:
+            # ارسال کامنت به عنوان ریپلای زیر آخرین پست آمده در گروه
             await message.reply_text(COMMENT_TEXT)
         except Exception as e:
             print(f"Error: {e}")
@@ -24,10 +26,10 @@ async def auto_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     application = ApplicationBuilder().token(TOKEN).build()
     
-    handler = MessageHandler(filters.Chat(DISCUSSION_GROUP_ID) & filters.FORWARDED, auto_comment)
+    # گرفتن تمام پیام‌هایی که در گروه کامنت‌ها ارسال می‌شود (شامل پست‌های کانال)
+    handler = MessageHandler(filters.Chat(DISCUSSION_GROUP_ID) & ~filters.COMMAND, auto_comment)
     application.add_handler(handler)
 
-    # راه‌اندازی وب‌هوک اختصاصی با لینک رندر شما
     application.run_webhook(
         listen="0.0.0.0",
         port=PORT,
