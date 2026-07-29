@@ -1,4 +1,5 @@
 import os
+import asyncio
 from aiohttp import web
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
@@ -19,33 +20,37 @@ async def auto_comment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             print(f"Error: {e}")
 
-# یک سرور وب کوچک برای پاسخ به درخواست‌های رندر (جلوگیری از ارور پورت)
+# وب سرور برای پاسخ به رندر و باز نگه داشتن پورت
 async def handle(request):
     return web.Response(text="Bot is running!")
 
-async def web_server():
+async main():
+    # 1. راه‌اندازی وب سرور aiohttp روی پورت رندر
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # رندر پورت را از طریق متغیر محیطی PORT مشخص می‌کند
     port = int(os.environ.get("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+    print(f"Web server started on port {port}")
 
-def main():
+    # 2. راه‌اندازی بات تلگرام
     application = ApplicationBuilder().token(TOKEN).build()
     handler = MessageHandler(filters.Chat(DISCUSSION_GROUP_ID) & filters.FORWARDED, auto_comment)
     application.add_handler(handler)
 
-    # اجرای همزمان بات تلگرام و سرور وب برای رندر
-    import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(web_server())
+    # استارت زدن بات بدون مسدود کردن رویدادها
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
     
-    print("Bot is running with web server...")
-    application.run_polling()
+    print("Telegram bot is running smoothly...")
+
+    # نگه‌داشتن برنامه روشن
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
